@@ -1,0 +1,6 @@
+wp:
+  enviro: wordcamper
+  hhvm_domains:
+    - hhvm.wordcamper-news.dev
+  php_domains:
+    - php.wordcamper-news.dev

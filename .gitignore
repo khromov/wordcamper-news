@@ -1,4 +1,5 @@
 .vagrant/
 wpengine_data/
-hgv_data/
+hgv_data/sites
 .DS_Store
+.idea/
