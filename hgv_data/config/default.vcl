@@ -1,3 +1,9 @@
+# http://www.midwesternmac.com/blogs/jeff-geerling/debugging-varnish-vcl
+# https://opensourcehacker.com/2011/11/16/varnish-caching-and-http-cookies/
+#https://www.varnish-cache.org/trac/wiki/VCLExampleCacheCookies
+import std;
+
+
 # IP addresses allowed to do "purge" operations. Reject from the Internet in general!
 #acl purge {
 #	"127.0.0.1";
@@ -28,6 +34,42 @@ sub vcl_recv {
 	} else {
 		error 404 "Host header required";
 	}
+
+	# Pass anything going to wp-login or wp-admin (including AJAX)
+	if ((req.url ~ "wp-(login|admin)")) {
+		return(pass);
+	}
+
+	#Pass internal API
+	if ((req.url ~ "/?wordcampers_internal_api=")) {
+		return(pass);
+	}
+
+
+	# Rewrite subscriber cookie to header
+	if( req.url ~ "/wp-content/plugins/wordcamper-news-plugin/esi" ) {
+		std.syslog(0, "in esi");
+		set req.http.Cookie = ";" + req.http.Cookie;
+		set req.http.Cookie = regsuball(req.http.Cookie, "; +", ";");
+		set req.http.Cookie = regsuball(req.http.Cookie, ";(wp_subscriber)=", "; \1=");
+		set req.http.Cookie = regsuball(req.http.Cookie, ";[^ ][^;]*", "");
+		set req.http.Cookie = regsuball(req.http.Cookie, "^[; ]+|[; ]+$", "");
+
+		set req.http.X-subscriberInfo = regsub(req.http.Cookie,"^.*?wp_subscriber=([^;]*);*.*$", "\1");
+
+		return(pass);
+	}
+
+	# Strip all cookies for subscribers so we can still let other classes log in properly
+	if (req.http.Cookie ~ "wp_subscriber=1") {
+	   unset req.http.Cookie;
+	   #std.syslog(0, "is subscriber");
+	}
+}
+
+sub vcl_fetch {
+	# Enable ESI
+	set beresp.do_esi = true;
 }
 
 #
